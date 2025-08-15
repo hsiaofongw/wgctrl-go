@@ -2,6 +2,7 @@ package wgctrl
 
 import (
 	"errors"
+	"log"
 	"os"
 
 	"github.com/mdlayher/netlink"
@@ -60,7 +61,8 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	for _, wgc := range c.cs {
 		devs, err := wgc.Devices()
 		if err != nil {
-			return nil, err
+			log.Printf("error getting devices: %v", err)
+			continue
 		}
 
 		out = append(out, devs...)
