@@ -1,2 +1,4 @@
 cmd/wgctrl/wgctrl
 *.test
+./bin/
+bin/

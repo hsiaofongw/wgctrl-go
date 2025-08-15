@@ -7,34 +7,65 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+
+	vnetns "github.com/vishvananda/netns"
+
+	"github.com/mdlayher/netlink"
 )
 
 func main() {
 	flag.Parse()
 
-	c, err := wgctrl.New()
-	if err != nil {
-		log.Fatalf("failed to open wgctrl: %v", err)
+	var err error
+	var c *wgctrl.Client
+	var netnsfd *int
+
+	var netnsPid *int
+	pid, err := strconv.ParseInt(flag.Arg(0), 10, 32)
+	if err == nil {
+		pidInt := int(pid)
+		netnsPid = &pidInt
 	}
-	defer c.Close()
+
+	if netnsPid != nil {
+		log.Printf("netns pid: %d", *netnsPid)
+		nsHandle, err := vnetns.GetFromPid(*netnsPid)
+		if err != nil {
+			panic(err)
+		}
+		defer nsHandle.Close()
+
+		fd := int(nsHandle)
+		netnsfd = &fd
+		log.Printf("netns fd: %d", *netnsfd)
+	}
+
+	if netnsfd != nil {
+		log.Printf("opening wgctrl with netlink config (netns fd: %d)", *netnsfd)
+		c, err = wgctrl.NewWithNetlinkConfig(&netlink.Config{
+			NetNS: *netnsfd,
+		})
+		if err != nil {
+			log.Fatalf("failed to open wgctrl with netlink config (netns fd: %d): %v", *netnsfd, err)
+		}
+		defer c.Close()
+	} else {
+		c, err = wgctrl.New()
+		if err != nil {
+			log.Fatalf("failed to open wgctrl: %v", err)
+		}
+		defer c.Close()
+	}
 
 	var devices []*wgtypes.Device
-	if device := flag.Arg(0); device != "" {
-		d, err := c.Device(device)
-		if err != nil {
-			log.Fatalf("failed to get device %q: %v", device, err)
-		}
-
-		devices = append(devices, d)
-	} else {
-		devices, err = c.Devices()
-		if err != nil {
-			log.Fatalf("failed to get devices: %v", err)
-		}
+	devices, err = c.Devices()
+	if err != nil {
+		log.Fatalf("failed to get devices: %v", err)
 	}
 
 	for _, d := range devices {

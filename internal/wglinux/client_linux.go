@@ -6,6 +6,7 @@ package wglinux
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"syscall"
 
@@ -25,6 +26,27 @@ type Client struct {
 	family genetlink.Family
 
 	interfaces func() ([]string, error)
+}
+
+// New creates a new Client using the provided netlink.Config and returns whether
+// or not the generic netlink interface is available.
+func NewWithNetlinkConfig(config *netlink.Config) (*Client, bool, error) {
+	log.Printf("NewWithNetlinkConfig: %+v", config)
+
+	c, err := genetlink.Dial(config)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Best effort version of netlink.Config.Strict due to CentOS 7.
+	for _, o := range []netlink.ConnOption{
+		netlink.ExtendedAcknowledge,
+		netlink.GetStrictCheck,
+	} {
+		_ = c.SetOption(o, true)
+	}
+
+	return initClient(c)
 }
 
 // New creates a new Client and returns whether or not the generic netlink

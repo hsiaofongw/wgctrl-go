@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 
+	"github.com/mdlayher/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -16,6 +17,18 @@ type Client struct {
 	// Seamlessly use different wginternal.Client implementations to provide an
 	// interface similar to wg(8).
 	cs []wginternal.Client
+}
+
+// New creates a new Client with the provided netlink.Config.
+func NewWithNetlinkConfig(config *netlink.Config) (*Client, error) {
+	cs, err := newClientsWithNetlinkConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		cs: cs,
+	}, nil
 }
 
 // New creates a new Client.
